@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Movie SPA Project</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #121212;
+      color: white;
+    }
+    header {
+      background-color: #1f1f1f;
+      padding: 1rem;
+      text-align: center;
+    }
+    nav {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+    input, select, button {
+      padding: 0.5rem;
+      font-size: 1rem;
+    }
+    #resultsContainer.grid-view {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 1rem;
+      padding: 1rem;
+    }
+    .movie-card {
+      background: #2a2a2a;
+      border-radius: 8px;
+      overflow: hidden;
+      text-align: center;
+      cursor: pointer;
+      padding: 1rem;
+    }
+    .movie-card img {
+      width: 100%;
+      height: auto;
+      border-radius: 8px;
+    }
+    #detailsContainer, #personContainer {
+      padding: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🎬 Movie Explorer</h1>
+    <nav>
+      <input type="text" id="searchQuery" placeholder="Search movies or shows...">
+      <button id="searchBtn">Search</button>
+      <select id="filterGenre"></select>
+      <button id="toggleView">Toggle View</button>
+    </nav>
+  </header>
+
+  <main>
+    <section id="resultsContainer" class="grid-view"></section>
+    <section id="detailsContainer" style="display: none;"></section>
+    <section id="personContainer" style="display: none;"></section>
+  </main>
+
+  <script>
+    const API_KEY = '17a6e4590d3ff4d7d1f5036fc04ef05f';
+    const BASE_URL = 'https://api.themoviedb.org/3';
+    let currentView = 'grid';
+
+    $(document).ready(function() {
+      $('#searchBtn').click(() => {
+        const query = $('#searchQuery').val();
+        searchMovies(query);
+      });
+
+      $('#toggleView').click(() => {
+        currentView = currentView === 'grid' ? 'list' : 'grid';
+        $('#resultsContainer').toggleClass('grid-view');
+      });
+
+      fetchGenres();
+    });
+
+    function searchMovies(query) {
+      $.ajax({
+        url: `${BASE_URL}/search/movie`,
+        data: { api_key: API_KEY, query },
+        success: function(response) {
+          displayResults(response.results);
+        }
+      });
+    }
+
+    function displayResults(results) {
+      $('#resultsContainer').empty();
+      results.forEach(movie => {
+        const movieCard = `<div class='movie-card' onclick='showDetails(${movie.id})'>
+          <img src='https://image.tmdb.org/t/p/w500${movie.poster_path}' alt='${movie.title}' />
+          <h3>${movie.title}</h3>
+          <p>Rating: ${movie.vote_average}</p>
+        </div>`;
+        $('#resultsContainer').append(movieCard);
+      });
+    }
+
+    function showDetails(movieId) {
+      $.ajax({
+        url: `${BASE_URL}/movie/${movieId}`,
+        data: { api_key: API_KEY, append_to_response: 'credits,reviews' },
+        success: function(data) {
+          const details = `
+            <h2>${data.title}</h2>
+            <img src='https://image.tmdb.org/t/p/w500${data.poster_path}' />
+            <p>${data.overview}</p>
+            <h4>Genres: ${data.genres.map(g => g.name).join(', ')}</h4>
+            <h4>Rating: ${data.vote_average}</h4>
+            <h4>Cast:</h4>
+            <ul>
+              ${data.credits.cast.slice(0, 5).map(actor => `<li onclick='showPerson(${actor.id})'>${actor.name}</li>`).join('')}
+            </ul>
+          `;
+          $('#detailsContainer').html(details).show();
+          $('#personContainer').hide();
+        }
+      });
+    }
+
+    function showPerson(personId) {
+      $.ajax({
+        url: `${BASE_URL}/person/${personId}`,
+        data: { api_key: API_KEY, append_to_response: 'movie_credits' },
+        success: function(person) {
+          const personDetails = `
+            <h2>${person.name}</h2>
+            <img src='https://image.tmdb.org/t/p/w500${person.profile_path}' />
+            <p>${person.biography}</p>
+            <h4>Known For:</h4>
+            <ul>
+              ${person.movie_credits.cast.slice(0, 5).map(movie => `<li>${movie.title}</li>`).join('')}
+            </ul>
+          `;
+          $('#personContainer').html(personDetails).show();
+          $('#detailsContainer').hide();
+        }
+      });
+    }
+
+    function fetchGenres() {
+      $.ajax({
+        url: `${BASE_URL}/genre/movie/list`,
+        data: { api_key: API_KEY },
+        success: function(data) {
+          data.genres.forEach(genre => {
+            $('#filterGenre').append(`<option value='${genre.id}'>${genre.name}</option>`);
+          });
+        }
+      });
+    }
+  </script>
+</body>
+</html>
